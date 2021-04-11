@@ -1,0 +1,25 @@
+h1 {
+  text-align: center;
+}
+
+div {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+select {
+  margin: 20px 0 20px 0;
+  height: 30px;
+  width: 20%;
+}
+
+table {
+  width: 80%;
+  border: solid 2px #000;
+  border-collapse: collapse;
+}
+
+td {
+  border: solid 1px #000;
+}
