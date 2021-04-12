@@ -4,14 +4,16 @@ let teams;
 let relationTeam;
 let games;
 let scores;
-
 let table;
+
+// 集計種別
 const TEAM = '1';
 const GAME = '2';
 const USER = '3';
 
+// onloadイベント内コールバックは変更しないでください。
 window.onload = () => {
-  // data.js内データを参照_ここは変えないでください。
+  // data.js内データを参照
   users = userData;
   teams = teamData;
   relationTeam = relationTeamData;
@@ -26,19 +28,19 @@ window.onload = () => {
   createTable(select.value);
 };
 
-createTable = (kind) => {
-  table.innerHTML = null;
+createTable = kind => {
+  table.innerHTML = null; // 必ず初期化
   try {
-    switch (kind) {
-      case TEAM:
-        return createTeamTable();
-      case GAME:
-        return createGameTable();
-      case USER:
-        return createUserTable();
-      default:
-        throw '存在しない種別';
-    }
+    getDataRows(kind).forEach(row => {
+      const tr = document.createElement('tr');
+      getColumns(kind).forEach(column => {
+        const td = document.createElement('td');
+        // 配列指定があれば配列から値を取得
+        td.innerText = column.array ? column.array[row[column.key]] : row[column.key];
+        tr.appendChild(td);
+      });
+      table.appendChild(tr);
+    });
   } catch (err) {
     console.log(err);
     const error = document.createElement('p');
@@ -47,101 +49,135 @@ createTable = (kind) => {
   }
 };
 
-createTeamTable = () => {
-  const rows = Array.from(
-    scores
-      .reduce((map, target) => {
-        const key = getTeamId(target.userId);
-        if (map.has(key)) {
-          map.get(key).push(target);
-        } else {
-          map.set(key, [target]);
-        }
-        return map;
-      }, new Map())
-    )
-    .map(([key, userArray]) =>
-      userArray.reduce((user, target) => {
-        user.score += target.score;
-        return user;
-      }, { id: key, score: 0 })
-    )
-    .sort((prev, target) => target.score - prev.score);
-  
-  rows.forEach(row => {
-    const tr = document.createElement('tr');
-    const teamTd = document.createElement('td');
-    teamTd.innerText = teams[row.id];
-    const scoreTd = document.createElement('td');
-    scoreTd.innerText = row.score;
-    tr.appendChild(teamTd);
-    tr.appendChild(scoreTd);
-    table.appendChild(tr);
-  });
+// 種別毎にデータを整形して取得
+getDataRows = kind => {
+  switch (kind) {
+    case TEAM:
+      return getTeamRows();
+    case GAME:
+      return getGameRows();
+    case USER:
+      return getUserRows();
+    default:
+      throw '存在しない種別';
+  }
 };
 
-createGameTable = () => {
-  const rows = Object.keys(games).map(gameKey =>
-    scores
-      .filter(score => score.gameId === Number(gameKey))
-      .reduce((prev, target) => prev.score > target.score ? prev : target)
+// チーム合計得点順情報返却
+getTeamRows = () => {
+  return sumAndSortDescRow(
+    // teamIdでMapに変換
+    scores.reduce((map, target) => putIfAbsent(map, getTeamId(target.userId), target), new Map())
   );
-
-  rows.forEach(row => {
-    const tr = document.createElement('tr');
-    const gameTd = document.createElement('td');
-    gameTd.innerText = games[row.gameId];
-    const nameTd = document.createElement('td');
-    nameTd.innerText = users[row.userId];
-    const teamTd = document.createElement('td');
-    teamTd.innerText = teams[getTeamId(row.userId)];
-    const scoreTd = document.createElement('td');
-    scoreTd.innerText = row.score;
-    tr.appendChild(gameTd);
-    tr.appendChild(nameTd);
-    tr.appendChild(teamTd);
-    tr.appendChild(scoreTd);
-    table.appendChild(tr);
-  });
 };
 
-createUserTable = () => {
-  const rows = Array.from(
-    scores
-      .reduce((map, target) => {
-        const key = target.userId;
-        if (map.has(key)) {
-          map.get(key).push(target);
-        } else {
-          map.set(key, [target]);
-        }
-        return map;
-      }, new Map())
+// ゲーム毎最高得点者情報返却
+getGameRows = () => {
+  return Object.keys(games).map(gameKey =>
+    getRowWithTeamId( // teamIdを付与して返却
+      scores
+        .filter(score => score.gameId === Number(gameKey)) // score配列をgameId毎にfilter
+        .reduce((prev, target) => prev.score > target.score ? prev : target) // 最高得点者を取得
     )
-    .map(([key, userArray]) =>
-      userArray.reduce((user, target) => {
-        user.score += target.score;
-        return user;
+  );
+};
+
+// 個人合計得点順情報返却
+getUserRows = () => {
+  return sumAndSortDescRow(
+    // userIdでMapに変換
+    scores.reduce((map, target) => putIfAbsent(map, target.userId, target), new Map())
+  )
+    .map(row => getRowWithTeamId(row, row.id)); // teamIdを付与して返却
+};
+
+// Map内value単位でscoreをsumし、降順にソートして返却
+sumAndSortDescRow = map => {
+  return Array.from(map)
+    .map(([key, scoreArray]) =>
+      // Map内scoreの合計を持つオブジェクト配列に変換
+      scoreArray.reduce((result, scoreObj) => {
+        result.score += scoreObj.score;
+        return result;
       }, { id: key, score: 0 })
     )
-    .sort((prev, target) => target.score - prev.score);
-  
-  rows.forEach(row => {
-    const tr = document.createElement('tr');
-    const nameTd = document.createElement('td');
-    nameTd.innerText = users[row.id];
-    const teamTd = document.createElement('td');
-    teamTd.innerText = teams[getTeamId(row.id)];
-    const scoreTd = document.createElement('td');
-    scoreTd.innerText = row.score;
-    tr.appendChild(nameTd);
-    tr.appendChild(teamTd);
-    tr.appendChild(scoreTd);
-    table.appendChild(tr);
-  });
+    .sort((prev, target) => target.score - prev.score); // 降順にソート
 };
 
-getTeamId = (userId) => {
+// keyが存在すれば配列にpush
+// keyが存在しなければset
+// して返却
+putIfAbsent = (map, key, target) => {
+  if (map.has(key)) {
+    map.get(key).push(target);
+  } else {
+    map.set(key, [target]);
+  }
+  return map;
+};
+
+// オブジェクトにteamIdをsetして返却
+getRowWithTeamId = row => {
+  // 個人合計得点順の場合、idプロパティからユーザIDを取得
+  row.teamId = getTeamId(row.userId || row.id);
+  return row;
+};
+
+// ユーザが所属するteamIdを返却
+getTeamId = userId => {
   return Object.entries(relationTeam)
     .find(([key, value]) => value.includes(userId))[0];
+};
+
+// 種別から表示用定義を取得
+getColumns = kind => {
+  switch (kind) {
+    case TEAM:
+      return [
+        {
+          array: teams,
+          key: 'id',
+        },
+        {
+          array: null,
+          key: 'score',
+        },
+      ];
+    case GAME:
+      return [
+        {
+          array: games,
+          key: 'gameId',
+        },
+        {
+          array: users,
+          key: 'userId',
+        },
+        {
+          array: teams,
+          key: 'teamId',
+        },
+        {
+          array: null,
+          key: 'score',
+        },
+      ];
+    case USER:
+      return [
+        {
+          array: users,
+          key: 'id',
+        },
+        {
+          array: teams,
+          key: 'teamId',
+        },
+        {
+          array: null,
+          key: 'score',
+        },
+      ];
+    default:
+      throw '存在しない種別';
+  }
 };
