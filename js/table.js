@@ -1,17 +1,18 @@
-// dataはこのグローバル変数を参照してください。
-let users;
-let teams;
-let relationTeam;
-let games;
-let scores;
+// data、tableのDOMはこのグローバル変数を参照してください。
+let users; // ユーザ一覧
+let teams; // チーム一覧
+let relationTeam; // だれがどこのチームに属するか
+let games; // ゲーム一覧
+let scores; // 誰がどのゲームで何点とったか
+let table; // tableのDOM要素
 
-let table;
 const TEAM = '1';
 const GAME = '2';
 const USER = '3';
 
+// onloadイベント内コールバックは変更しないでください。
 window.onload = () => {
-  // data.js内データを参照_ここは変えないでください。
+  // data.js内データを参照
   users = userData;
   teams = teamData;
   relationTeam = relationTeamData;
@@ -26,7 +27,7 @@ window.onload = () => {
   createTable(select.value);
 };
 
-createTable = (kind) => {
+createTable = kind => {
   table.innerHTML = null;
   try {
     switch (kind) {
@@ -141,7 +142,7 @@ createUserTable = () => {
   });
 };
 
-getTeamId = (userId) => {
+getTeamId = userId => {
   return Object.entries(relationTeam)
     .find(([key, value]) => value.includes(userId))[0];
 };
