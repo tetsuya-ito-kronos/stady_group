@@ -65,10 +65,7 @@ getDataRows = kind => {
 
 // チーム合計得点順情報返却
 getTeamRows = () => {
-  return sumAndSortDescRow(
-    // teamIdでMapに変換
-    scores.reduce((map, target) => putIfAbsent(map, getTeamId(target.userId), target), new Map())
-  );
+  return getSumScoreRows(getTeamId);
 };
 
 // ゲーム毎最高得点者情報返却
@@ -84,23 +81,17 @@ getGameRows = () => {
 
 // 個人合計得点順情報返却
 getUserRows = () => {
-  return sumAndSortDescRow(
-    // userIdでMapに変換
-    scores.reduce((map, target) => putIfAbsent(map, target.userId, target), new Map())
-  )
+  return getSumScoreRows(getUserId)
     .map(row => getRowWithTeamId(row, row.id)); // teamIdを付与して返却
 };
 
-// Map内value単位でscoreをsumし、降順にソートして返却
-sumAndSortDescRow = map => {
-  return Array.from(map)
-    .map(([key, scoreArray]) =>
-      // Map内scoreの合計を持つオブジェクト配列に変換
-      scoreArray.reduce((result, scoreObj) => {
-        result.score += scoreObj.score;
-        return result;
-      }, { id: key, score: 0 })
+// 種別単位で合計金額を算出、ソートして返却
+getSumScoreRows = getKeyHandler => {
+  return Array.from(
+      // 指定したKeyでMapに変換
+      scores.reduce((map, target) => putIfAbsent(map, getKeyHandler(target), target), new Map())
     )
+    .map(([key, scoreArray]) => getTotalScoreObj(key, scoreArray)) // Map内score合計をもつオブジェクト配列
     .sort((prev, target) => target.score - prev.score); // 降順にソート
 };
 
@@ -116,17 +107,30 @@ putIfAbsent = (map, key, target) => {
   return map;
 };
 
+// Map内scoreの合計を持つオブジェクトを返却
+getTotalScoreObj = (key, scoreArray) => {
+  return scoreArray.reduce((result, scoreObj) => {
+    result.score += scoreObj.score;
+    return result;
+  }, { id: key, score: 0 })
+}
+
 // オブジェクトにteamIdをsetして返却
 getRowWithTeamId = row => {
   // 個人合計得点順の場合、idプロパティからユーザIDを取得
-  row.teamId = getTeamId(row.userId || row.id);
+  row.teamId = getTeamId(row);
   return row;
 };
 
 // ユーザが所属するteamIdを返却
-getTeamId = userId => {
+getTeamId = row => {
   return Object.entries(relationTeam)
-    .find(([key, value]) => value.includes(userId))[0];
+    .find(([key, value]) => value.includes(getUserId(row)))[0];
+};
+
+// ユーザIDを取得
+getUserId = row => {
+  return row.userId || row.id;
 };
 
 // 種別から表示用定義を取得
